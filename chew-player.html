@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>chew sprite player</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #0e0e10;
+      color: #edeef0;
+    }
+    .panel {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      border-right: 1px solid #26272b;
+      background: #17181b;
+    }
+    .stage {
+      display: grid;
+      place-items: center;
+      background:
+        repeating-conic-gradient(#1a1b1e 0 25%, #202124 0 50%) 0 0 / 40px 40px;
+    }
+    .sprite {
+      background-repeat: no-repeat;
+      background-position: 0 0;
+      width: var(--w, 220px);
+      aspect-ratio: var(--ar, 176 / 278);
+    }
+    h1 { font-size: 13px; letter-spacing: .06em; opacity: .7; margin: 0; text-transform: uppercase; }
+    .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; background: #0e0e10; padding: 3px; border-radius: 8px; }
+    .seg button { all: unset; text-align: center; padding: 7px 4px; border-radius: 6px; cursor: pointer; color: #9aa0a6; }
+    .seg button:hover { background: #ffffff14; color: #fff; }
+    .seg button.on { background: #3a7afe; color: #fff; }
+    .row { display: grid; grid-template-columns: 60px 1fr 54px; align-items: center; gap: 8px; }
+    .row label { color: #9aa0a6; }
+    .row output { text-align: right; font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; accent-color: #3a7afe; }
+    input[type=number] { width: 100%; background: #0e0e10; border: 1px solid #313236; color: #fff; border-radius: 6px; padding: 6px; font: inherit; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .grid3 label { display: grid; gap: 4px; color: #9aa0a6; font-size: 11px; }
+    button.act { all: unset; text-align: center; padding: 9px; border-radius: 7px; background: #232428; border: 1px solid #313236; cursor: pointer; }
+    button.act:hover { background: #33343a; }
+    button.act.on { background: #e0492e; border-color: #e0492e; color: #fff; }
+    .chk { display: flex; align-items: center; gap: 8px; color: #9aa0a6; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>chew player</h1>
+
+    <div class="seg" id="pick">
+      <button data-key="c2" class="on">chew 2</button>
+      <button data-key="c3">chew 3</button>
+    </div>
+
+    <div class="grid3">
+      <label>cols<input type="number" id="cols" value="16" min="1" /></label>
+      <label>rows<input type="number" id="rows" value="8" min="1" /></label>
+      <label>frames<input type="number" id="frames" value="128" min="1" /></label>
+    </div>
+
+    <button class="act on" id="play">⏸ pause</button>
+
+    <div class="row">
+      <label>frame</label>
+      <input type="range" id="frame" min="0" max="127" value="0" />
+      <output id="frameval">0</output>
+    </div>
+    <div class="row">
+      <label>fps</label>
+      <input type="range" id="fps" min="1" max="60" value="30" />
+      <output id="fpsval">30</output>
+    </div>
+    <div class="row">
+      <label>size</label>
+      <input type="range" id="size" min="80" max="700" value="240" />
+      <output id="sizeval">240</output>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="gray" /> grayscale</label>
+    <label class="chk"><input type="checkbox" id="loopset" checked /> loop</label>
+  </div>
+
+  <div class="stage">
+    <div class="sprite" id="sprite"></div>
+  </div>
+
+  <script>
+    const el = document.getElementById("sprite");
+    const $ = (id) => document.getElementById(id);
+    // exact params per sprite (from Cta.astro)
+    const SPRITES = {
+      c2: { src: "img/sprites/chew2-sprite.webp", cols: 16, rows: 8,  frames: 113, ar: "176 / 280" },
+      c3: { src: "img/sprites/chew3-sprite.webp", cols: 16, rows: 11, frames: 166, ar: "176 / 257" },
+    };
+    const state = { ...SPRITES.c2, frame: 0, fps: 30, size: 240, playing: true };
+    let raf = 0, last = 0, acc = 0;
+
+    function applyFrame() {
+      const c = state.cols, r = state.rows, f = Math.min(state.frame, state.frames - 1);
+      const col = f % c, row = Math.floor(f / c);
+      el.style.backgroundPositionX = c > 1 ? (col / (c - 1)) * 100 + "%" : "0%";
+      el.style.backgroundPositionY = r > 1 ? (row / (r - 1)) * 100 + "%" : "0%";
+      $("frame").value = f;
+      $("frameval").textContent = f;
+    }
+    function applySheet() {
+      el.style.backgroundImage = `url("${state.src}")`;
+      el.style.backgroundSize = state.cols * 100 + "% " + state.rows * 100 + "%";
+      el.style.setProperty("--ar", state.ar);
+      $("cols").value = state.cols; $("rows").value = state.rows; $("frames").value = state.frames;
+      $("frame").max = state.frames - 1;
+      if (state.frame >= state.frames) state.frame = 0;
+      applyFrame();
+    }
+    function tick(now) {
+      if (!last) last = now;
+      acc += now - last; last = now;
+      const iv = 1000 / state.fps;
+      while (acc >= iv) {
+        acc -= iv;
+        let n = state.frame + 1;
+        if (n >= state.frames) { if (!$("loopset").checked) { pause(); return; } n = 0; }
+        state.frame = n;
+      }
+      applyFrame();
+      raf = requestAnimationFrame(tick);
+    }
+    function play() { if (raf) return; state.playing = true; $("play").classList.add("on"); $("play").textContent = "⏸ pause"; last = 0; raf = requestAnimationFrame(tick); }
+    function pause() { cancelAnimationFrame(raf); raf = 0; state.playing = false; $("play").classList.remove("on"); $("play").textContent = "▶ play"; }
+
+    $("pick").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      $("pick").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      Object.assign(state, SPRITES[b.dataset.key]); state.frame = 0; applySheet();
+    });
+    ["cols", "rows"].forEach((k) => $(k).addEventListener("input", () => {
+      state[k] = Math.max(1, +$(k).value | 0);
+      state.frames = state.cols * state.rows; $("frames").value = state.frames;
+      applySheet();
+    }));
+    $("frames").addEventListener("input", () => { state.frames = Math.max(1, +$("frames").value | 0); applySheet(); });
+    $("frame").addEventListener("input", () => { pause(); state.frame = +$("frame").value; applyFrame(); });
+    $("fps").addEventListener("input", () => { state.fps = +$("fps").value; $("fpsval").textContent = state.fps; });
+    $("size").addEventListener("input", () => { state.size = +$("size").value; $("sizeval").textContent = state.size; el.style.setProperty("--w", state.size + "px"); });
+    $("gray").addEventListener("change", () => { el.style.filter = $("gray").checked ? "grayscale(1)" : ""; });
+    $("play").addEventListener("click", () => (raf ? pause() : play()));
+
+    el.style.setProperty("--w", state.size + "px");
+    applySheet();
+    play();
+  </script>
+</body>
+</html>
