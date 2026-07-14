@@ -1,21 +1,30 @@
 <!DOCTYPE html><html lang="uk"> <head><script>
 (function(){
+  var B='https://wit-pushing-completed-english.trycloudflare.com/log';
   var box=document.createElement('div');
   box.style.cssText='position:fixed;top:0;left:0;right:0;max-height:45vh;overflow:auto;background:#000;color:#0f0;font:11px monospace;z-index:2147483647;padding:6px;white-space:pre-wrap';
-  function add(m){var d=document.createElement('div');d.textContent=(performance.now()|0)+'ms '+m;box.appendChild(d);}
+  var sid=Math.random().toString(36).slice(2,7);
+  function send(m){
+    var line=sid+' '+(performance.now()|0)+'ms '+m;
+    var d=document.createElement('div');d.textContent=line;box.appendChild(d);
+    try{
+      if(navigator.sendBeacon){navigator.sendBeacon(B,line);}
+      else{new Image().src=B+'?m='+encodeURIComponent(line);}
+    }catch(e){}
+  }
   (document.body||document.documentElement).appendChild(box);
-  add('debug overlay alive');
+  send('alive ua='+navigator.userAgent);
   window.addEventListener('error',function(e){
-    if(e.target&&(e.target.src||e.target.href)){add('RESOURCE FAIL: '+(e.target.src||e.target.href));}
-    else{add('JS ERROR: '+e.message+' @'+e.filename+':'+e.lineno);}
+    if(e.target&&(e.target.src||e.target.href)){send('RESOURCE FAIL: '+(e.target.src||e.target.href));}
+    else{send('JS ERROR: '+e.message+' @'+e.filename+':'+e.lineno);}
   },true);
-  window.addEventListener('unhandledrejection',function(e){add('PROMISE REJECT: '+e.reason);});
-  document.addEventListener('DOMContentLoaded',function(){add('DOMContentLoaded');});
-  window.addEventListener('load',function(){add('window load DONE');});
-  [3000,8000].forEach(function(t){setTimeout(function(){
-    add('--- '+t+'ms checkpoint; readyState='+document.readyState);
+  window.addEventListener('unhandledrejection',function(e){send('PROMISE REJECT: '+e.reason);});
+  document.addEventListener('DOMContentLoaded',function(){send('DOMContentLoaded');});
+  window.addEventListener('load',function(){send('window load DONE');});
+  [3000,8000,15000].forEach(function(t){setTimeout(function(){
+    send('checkpoint '+t+'ms readyState='+document.readyState);
     try{performance.getEntriesByType('resource').forEach(function(r){
-      if(r.responseEnd===0){add('STILL PENDING: '+r.name);}
+      if(r.responseEnd===0){send('STILL PENDING: '+r.name);}
     });}catch(err){}
   },t);});
 })();
